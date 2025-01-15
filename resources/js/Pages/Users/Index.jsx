@@ -8,95 +8,89 @@ import { Head, usePage } from "@inertiajs/react";
 import Search from "@/Components/Search";
 import hasAnyPermission from "@/Utils/Permissions";
 export default function Index({ auth }) {
-    // destruct permissions props
-    const { roles ,filters} = usePage().props;
+    // destruct users props
+    const { users, filters } = usePage().props;
 
     return (
         <AuthenticatedLayout
             user={auth.user}
             header={
                 <h2 className="font-semibold text-xl text-blue-800 leading-tight">
-                    Roles
+                    Users
                 </h2>
             }
         >
-            <Head title={"Roles"} />
+            <Head title={"Users"} />
             <Container>
                 <div className="mb-4 flex items-center justify-between gap-4">
-                    {hasAnyPermission(["roles create"]) && (
-                        <Button type={"add"} url={route("roles.create")} />
+                    {hasAnyPermission(["users create"]) && (
+                        <Button type={"add"} url={route("users.create")} />
                     )}
                     <div className="w-full md:w-4/6">
                         <Search
-                            url={route("roles.index")}
-                            placeholder={"Search roles data by name..."}
+                            url={route("users.index")}
+                            placeholder={"Search users data by name..."}
                             filter={filters}
                         />
                     </div>
                 </div>
-                <Table.Card title={"Roles"}>
+                <Table.Card title={"users"}>
                     <Table>
                         <Table.Thead>
                             <tr>
                                 <Table.Th>#</Table.Th>
-                                <Table.Th>Role Name</Table.Th>
-                                <Table.Th>Permissions</Table.Th>
+                                <Table.Th>User</Table.Th>
+                                <Table.Th>Roles</Table.Th>
                                 <Table.Th>Action</Table.Th>
                             </tr>
                         </Table.Thead>
                         <Table.Tbody>
-                            {roles.data.map((role, i) => (
+                            {users.data.map((user, i) => (
                                 <tr key={i}>
                                     <Table.Td>
                                         {++i +
-                                            (roles.current_page - 1) *
-                                                roles.per_page}
+                                            (users.current_page - 1) *
+                                                users.per_page}
                                     </Table.Td>
-                                    <Table.Td>{role.name}</Table.Td>
+                                    <Table.Td>
+                                        {user.name}
+                                        <div className="text-sm text-gray-400">
+                                            {user.email}
+                                        </div>
+                                    </Table.Td>
                                     <Table.Td>
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            {role.name == "super-admin" ? (
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-sky-100 text-sky-700">
-                                                    all-permissions
+                                            {user.roles.map((role, i) => (
+                                                <span
+                                                    className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-sky-100 text-sky-700"
+                                                    key={i}
+                                                >
+                                                    {role.name}
                                                 </span>
-                                            ) : (
-                                                role.permissions.map(
-                                                    (permission, i) => (
-                                                        <span
-                                                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-sky-100 text-sky-700"
-                                                            key={i}
-                                                        >
-                                                            {role.name ==
-                                                            "super-admin"
-                                                                ? "all-permissions"
-                                                                : permission.name}
-                                                        </span>
-                                                    )
-                                                )
-                                            )}
+                                            ))}
                                         </div>
                                     </Table.Td>
                                     <Table.Td>
                                         <div className="flex items-center gap-2">
                                             {hasAnyPermission([
-                                                "roles edit",
+                                                "users edit",
                                             ]) && (
                                                 <Button
                                                     type={"edit"}
                                                     url={route(
-                                                        "roles.edit",
-                                                        role.id
+                                                        "users.edit",
+                                                        user.id
                                                     )}
                                                 />
                                             )}
                                             {hasAnyPermission([
-                                                "roles delete",
+                                                "users delete",
                                             ]) && (
                                                 <Button
                                                     type={"delete"}
                                                     url={route(
-                                                        "roles.destroy",
-                                                        role.id
+                                                        "users.destroy",
+                                                        user.id
                                                     )}
                                                 />
                                             )}
@@ -108,8 +102,8 @@ export default function Index({ auth }) {
                     </Table>
                 </Table.Card>
                 <div className="flex items-center justify-center">
-                    {roles.last_page !== 1 && (
-                        <Pagination links={roles.links} />
+                    {users.last_page !== 1 && (
+                        <Pagination links={users.links} />
                     )}
                 </div>
             </Container>
