@@ -11,27 +11,27 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 class UserTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Menjalankan seeder untuk membuat user dan mengatur role serta permissions.
      */
     public function run(): void
     {
-        //create user
+        // Membuat user baru dengan data default
         $user = User::create([
-            'name'      => 'Syahrizaldev',
-            'email'     => 'izaldev@gmail.com',
-            'password'  => bcrypt('password'),
+            'name'      => 'Syahrizaldev',             // Nama pengguna
+            'email'     => 'izaldev@gmail.com',        // Email pengguna
+            'password'  => bcrypt('password'),         // Password yang dienkripsi menggunakan bcrypt
         ]);
 
-        //get all permissions
+        // Mengambil semua permissions yang ada di tabel permissions
         $permissions = Permission::all();
 
-        //get role admin
+        // Mengambil role dengan ID 1 (diasumsikan sebagai admin)
         $role = Role::find(1);
 
-        //assign permission to role
+        // Menyinkronkan semua permissions ke role admin
         $role->syncPermissions($permissions);
 
-        //assign role to user
+        // Memberikan role admin kepada user yang baru dibuat
         $user->assignRole($role);
     }
 }

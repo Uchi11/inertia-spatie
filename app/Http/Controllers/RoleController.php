@@ -7,8 +7,15 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-class RoleController extends Controller implements HasMiddleware // Implement Middleware Spatie
+
+class RoleController extends Controller implements HasMiddleware
 {
+    /**
+     * Mendefinisikan middleware untuk otorisasi berdasarkan permission.
+     * 
+     * Middleware ini memastikan bahwa hanya pengguna dengan izin tertentu 
+     * yang dapat mengakses metode-metode di controller ini.
+     */
     public static function middleware()
     {
         return [
@@ -18,124 +25,137 @@ class RoleController extends Controller implements HasMiddleware // Implement Mi
             new Middleware('permission:roles delete', only: ['destroy']),
         ];
     }
+
     /**
-     * Display a listing of the resource.
+     * Menampilkan daftar role.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Inertia\Response
      */
     public function index(Request $request)
     {
-        // get roles
+        // Mengambil data roles dengan relasi permissions
         $roles = Role::select('id', 'name')
-            ->with('permissions:id,name')
-            ->when($request->search,fn($search) => $search->where('name', 'like', '%'.$request->search.'%'))
-            ->latest()
-            ->paginate(6);
+            ->with('permissions:id,name')  // Memuat data permissions terkait untuk setiap role
+            ->when($request->search, fn($query) => 
+                $query->where('name', 'like', '%' . $request->search . '%'))  // Filter pencarian berdasarkan nama role
+            ->latest()  // Mengurutkan dari yang terbaru
+            ->paginate(6);  // Pagination dengan 6 item per halaman
 
-        // render view
-        return inertia('Roles/Index', ['roles' => $roles,'filters' => $request->only(['search'])]);
+        // Mengembalikan tampilan dengan data roles dan filter pencarian
+        return inertia('Roles/Index', [
+            'roles' => $roles,
+            'filters' => $request->only(['search'])
+        ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Menampilkan form untuk membuat role baru.
+     *
+     * @return \Inertia\Response
      */
     public function create()
     {
-        // get permissions
-        // $permissions = Permission::all();
-        $data = Permission::orderBy('name')->pluck('name', 'id');
+        // Mengambil semua permissions dan mengelompokkan berdasarkan kata pertama dari nama permission
+        $data = Permission::orderBy('name')->pluck('name', 'id');  // Mengambil data permission (id sebagai key, name sebagai value)
         $collection = collect($data);
-        $permissions = $collection->groupBy(function ($item, $key) {
-            // Memecah string menjadi array kata-kata
-            $words = explode(' ', $item);
 
-            // Mengambil kata pertama
-            return $words[0];
+        $permissions = $collection->groupBy(function ($item) {
+            $words = explode(' ', $item);  // Memecah nama permission menjadi array kata
+            return $words[0];  // Mengelompokkan berdasarkan kata pertama
         });
-        // return $permissions;
-        // render view
+
+        // Mengembalikan tampilan form create dengan data permissions yang sudah dikelompokkan
         return inertia('Roles/Create', ['permissions' => $permissions]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Menyimpan role baru ke dalam database.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
-         // validate request
-         $request->validate([
-            'name' => 'required|min:3|max:255|unique:roles',
-            'selectedPermissions' => 'required|array|min:1',
+        // Validasi input request
+        $request->validate([
+            'name' => 'required|min:3|max:255|unique:roles',  // Nama role harus unik
+            'selectedPermissions' => 'required|array|min:1',  // Harus memilih minimal satu permission
         ]);
 
-        // create new role data
+        // Membuat role baru
         $role = Role::create(['name' => $request->name]);
 
-        // give permissions to role
+        // Memberikan permissions ke role yang baru dibuat
         $role->givePermissionTo($request->selectedPermissions);
 
-        // render view
+        // Redirect ke halaman index roles setelah berhasil menyimpan
         return to_route('roles.index');
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
+     * Menampilkan form untuk mengedit role.
+     *
+     * @param  \Spatie\Permission\Models\Role  $role
+     * @return \Inertia\Response
      */
     public function edit(Role $role)
     {
-        // get permissions
+        // Mengambil semua permissions dan mengelompokkan berdasarkan kata pertama
         $data = Permission::orderBy('name')->pluck('name', 'id');
         $collection = collect($data);
-        $permissions = $collection->groupBy(function ($item, $key) {
-            // Memecah string menjadi array kata-kata
+        $permissions = $collection->groupBy(function ($item) {
             $words = explode(' ', $item);
-
-            // Mengambil kata pertama
             return $words[0];
         });
 
-        // load permissions
+        // Memuat relasi permissions untuk role yang sedang diedit
         $role->load('permissions');
 
-        // render view
-        return inertia('Roles/Edit', ['role' => $role, 'permissions' => $permissions]);
+        // Mengembalikan tampilan form edit dengan data role dan permissions
+        return inertia('Roles/Edit', [
+            'role' => $role,
+            'permissions' => $permissions
+        ]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Memperbarui data role di database.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Spatie\Permission\Models\Role  $role
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Role $role)
     {
-        // validate request
+        // Validasi input request untuk update
         $request->validate([
-            'name' => 'required|min:3|max:255|unique:roles,name,'.$role->id,
-            'selectedPermissions' => 'required|array|min:1',
+            'name' => 'required|min:3|max:255|unique:roles,name,' . $role->id,  // Memastikan nama unik kecuali untuk role yang sedang diedit
+            'selectedPermissions' => 'required|array|min:1',  // Harus memilih minimal satu permission
         ]);
 
-        // update role data
+        // Memperbarui data role
         $role->update(['name' => $request->name]);
 
-        // give permissions to role
+        // Menyinkronkan permissions untuk role ini (menghapus yang lama dan menambahkan yang baru)
         $role->syncPermissions($request->selectedPermissions);
 
-        // render view
+        // Redirect ke halaman index setelah berhasil update
         return to_route('roles.index');
     }
+
     /**
-     * Remove the specified resource from storage.
+     * Menghapus role dari database.
+     *
+     * @param  \Spatie\Permission\Models\Role  $role
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Role $role)
     {
-        // delete role data
+        // Menghapus role dari database
         $role->delete();
 
-        // render view
+        // Kembali ke halaman sebelumnya setelah berhasil menghapus
         return back();
     }
 }

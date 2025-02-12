@@ -7,128 +7,151 @@ use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Routing\Controllers\HasMiddleware;
+
 class UserController extends Controller implements HasMiddleware
 {
-
+    /**
+     * Middleware untuk memastikan pengguna memiliki permission yang sesuai 
+     * sebelum mengakses metode tertentu.
+     */
     public static function middleware()
     {
         return [
-            new Middleware('permission:users index', only : ['index']),
-            new Middleware('permission:users create', only : ['create', 'store']),
-            new Middleware('permission:users edit', only : ['edit', 'update   ']),
-            new Middleware('permission:users delete', only : ['destroy']),
+            new Middleware('permission:users index', only: ['index']),   // Hanya pengguna dengan permission 'users index' yang bisa mengakses index
+            new Middleware('permission:users create', only: ['create', 'store']), // Untuk create dan store
+            new Middleware('permission:users edit', only: ['edit', 'update']),    // Untuk edit dan update
+            new Middleware('permission:users delete', only: ['destroy']),         // Untuk delete
         ];
     }
+
     /**
-     * Display a listing of the resource.
+     * Menampilkan daftar user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Inertia\Response
      */
     public function index(Request $request)
     {
-        // get all users
+        // Mengambil semua user beserta role mereka
         $users = User::with('roles')
-            ->when(request('search'), fn($query) => $query->where('name', 'like', '%'.request('search').'%'))
-            ->latest()
-            ->paginate(6);
+            ->when($request->search, fn($query) => 
+                $query->where('name', 'like', '%' . $request->search . '%')) // Filter pencarian berdasarkan nama
+            ->latest()  // Mengurutkan berdasarkan data terbaru
+            ->paginate(6);  // Membatasi hasil per halaman
 
-        // render view
-        return inertia('Users/Index', ['users' => $users,'filters' => $request->only(['search'])]);
+        // Mengembalikan data user dan filter pencarian ke tampilan Inertia
+        return inertia('Users/Index', [
+            'users' => $users,
+            'filters' => $request->only(['search'])
+        ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Menampilkan form untuk membuat user baru.
+     *
+     * @return \Inertia\Response
      */
     public function create()
     {
-         // get roles
-         $roles = Role::latest()->get();
-         // render view
-         return inertia('Users/Create', ['roles' => $roles]);
+        // Mengambil semua role dari database
+        $roles = Role::latest()->get();
+
+        // Mengembalikan tampilan form create dengan data roles
+        return inertia('Users/Create', ['roles' => $roles]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Menyimpan user baru ke dalam database.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
-         // validate request
-         $request->validate([
+        // Validasi input request
+        $request->validate([
             'name' => 'required|min:3|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|confirmed|min:4',
-            'selectedRoles' => 'required|array|min:1',
+            'email' => 'required|email|unique:users',  // Email harus unik
+            'password' => 'required|confirmed|min:4',  // Password harus dikonfirmasi dan minimal 4 karakter
+            'selectedRoles' => 'required|array|min:1', // Minimal satu role harus dipilih
         ]);
 
-        // create user
+        // Membuat user baru
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => bcrypt($request->password),
+            'password' => bcrypt($request->password), // Mengenkripsi password
         ]);
 
-        // attach roles
+        // Menambahkan role ke user
         $user->assignRole($request->selectedRoles);
 
-        // render view
+        // Redirect ke halaman index user setelah berhasil menyimpan
         return to_route('users.index');
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
+     * Menampilkan form untuk mengedit user.
+     *
+     * @param  \App\Models\User  $user
+     * @return \Inertia\Response
      */
     public function edit(User $user)
     {
-        // get roles
+        // Mengambil semua roles kecuali super-admin
         $roles = Role::where('name', '!=', 'super-admin')->get();
 
-        // load roles
+        // Memuat data role yang dimiliki user
         $user->load('roles');
 
-        // render view
-        return inertia('Users/Edit', ['user' => $user, 'roles' => $roles]);
+        // Mengembalikan tampilan form edit dengan data user dan roles
+        return inertia('Users/Edit', [
+            'user' => $user,
+            'roles' => $roles
+        ]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Memperbarui data user di database.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, User $user)
     {
-        // validate request
+        // Validasi input request
         $request->validate([
             'name' => 'required|min:3|max:255',
-            'email' => 'required|email|unique:users,email,'.$user->id,
-            'selectedRoles' => 'required|array|min:1',
+            'email' => 'required|email|unique:users,email,' . $user->id,  // Email harus unik kecuali untuk user ini
+            'selectedRoles' => 'required|array|min:1',  // Minimal satu role harus dipilih
         ]);
 
-        // update user data
+        // Memperbarui data user
         $user->update([
             'name' => $request->name,
             'email' => $request->email,
         ]);
 
-        // attach roles
+        // Menyinkronkan role user (menghapus role lama dan menambahkan yang baru)
         $user->syncRoles($request->selectedRoles);
 
-        // render view
+        // Redirect ke halaman index user setelah berhasil update
         return to_route('users.index');
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Menghapus user dari database.
+     *
+     * @param  \App\Models\User  $user
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(User $user)
     {
-        // delete user data
+        // Menghapus data user
         $user->delete();
 
-        // render view
+        // Kembali ke halaman sebelumnya setelah berhasil menghapus
         return back();
     }
 }

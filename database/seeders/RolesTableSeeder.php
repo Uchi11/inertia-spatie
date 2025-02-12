@@ -9,11 +9,12 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 class RolesTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Menjalankan seeder untuk mengisi tabel roles.
      */
     public function run(): void
     {
-        Role::create(['name' => 'admin']);
-        Role::create(['name' => 'user']);
+        // Membuat peran (roles) baru di database
+        Role::create(['name' => 'admin']); // Peran untuk administrator dengan akses penuh
+        Role::create(['name' => 'user']);  // Peran untuk pengguna biasa dengan akses terbatas
     }
 }
